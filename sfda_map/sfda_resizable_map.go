@@ -6,10 +6,11 @@
 package sfda_map
 
 import (
-	"fmt"
 	"runtime"
 	"sync"
 	"time"
+
+	cpf "github.com/nacioboi/go_sfda_map/cpf_abstraction"
 )
 
 const (
@@ -275,7 +276,7 @@ func (m *SFDA_Resizable_Map[KT, VT]) bg2() {
 		if time.Since(last_time_cmd_issued) > BG2_SLEEP_MILLISECONDS*time.Millisecond {
 			cmd := m.do_update(local_num_entries, m.map_.num_buckets_runtime)
 			if cmd != 0 && cmd != previous_resize_target {
-				fmt.Printf("new command = [%d]\n", cmd)
+				cpf.Debug_Printf("new command = [%d]\n", cmd)
 				m.Resize(KT(cmd), m.map_.buckets)
 			}
 			previous_resize_target = cmd

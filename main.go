@@ -6,32 +6,30 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"runtime"
 	"runtime/debug"
 	"runtime/pprof"
 
+	cpf "github.com/nacioboi/go_sfda_map/cpf_abstraction"
 	"github.com/nacioboi/go_sfda_map/sfda_map"
 	tests "github.com/nacioboi/go_sfda_map/tests"
 )
 
 // A func allowing us to see memory usage in the task manager:
 // func wait_for_enter() {
-// 	fmt.Println("Press enter to exit...")
+// 	cpf.Debug_Printf("Press enter to exit...\n")
 // 	var s string
 // 	fmt.Scanln(&s)
 // }
 
 func main() {
+	tests.Test_Consistency(1024)
+
 	//
 	// Setups...
 	//
-	runtime.SetCPUProfileRate(8000)
-
-	tests.Test_Consistency(1024)
-
 	debug.SetGCPercent(-1)
 	defer debug.SetGCPercent(100)
 	defer runtime.GC()
@@ -80,7 +78,7 @@ func main() {
 	//
 	// Random benchmarks...
 	//
-	fmt.Println("")
+	cpf.Debug_Printf("\n")
 
 	// Generate a random keys array...
 	random_keys := tests.Generate_Random_Keys(n2)
@@ -90,7 +88,7 @@ func main() {
 	tests.Bench_Linear_Builtin_Map_Set(b_m_2, n2, false)
 	microseconds := tests.Bench_Random_Builtin_Map_Get(b_m_2, random_keys, false)
 	time_per_op := float64(microseconds) / float64(n2)
-	fmt.Printf("Built-in Map Microseconds  ::: RANDOM GET PER OP ::: %f\n", time_per_op)
+	cpf.Debug_Printf("Built-in Map Microseconds  ::: RANDOM GET PER OP ::: %f\n", time_per_op)
 
 	// Benchmark SFDA map - random...
 	runtime.GC()
@@ -99,12 +97,12 @@ func main() {
 	microseconds = tests.Bench_Random_SFDA_Map_Get(sfda_map_2, random_keys, false)
 	//pprof.StopCPUProfile()
 	time_per_op = float64(microseconds) / float64(n2)
-	fmt.Printf("SFDA Map Microseconds      ::: RANDOM GET PER OP ::: %f\n", time_per_op)
+	cpf.Debug_Printf("SFDA Map Microseconds      ::: RANDOM GET PER OP ::: %f\n", time_per_op)
 
 	//
 	// Deletion benchmarks...
 	//
-	fmt.Println("")
+	cpf.Debug_Printf("\n")
 
 	// Benchmark built-in map - delete...
 	runtime.GC()
@@ -117,7 +115,7 @@ func main() {
 	//
 	// Memory usage benchmarks...
 	//
-	fmt.Println("")
+	cpf.Debug_Printf("\n")
 
 	// Benchmark built-in map - memory usage...
 	runtime.GC()
@@ -130,7 +128,7 @@ func main() {
 	//
 	// SFDA resizable map benchmarks...
 	//
-	fmt.Println("")
+	cpf.Debug_Printf("\n")
 
 	// Benchmark SFDA resizable map...
 	runtime.GC()

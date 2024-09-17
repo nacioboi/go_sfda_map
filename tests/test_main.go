@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/nacioboi/go_sfda_map/sfda_map"
+
+	cpf "github.com/nacioboi/go_sfda_map/cpf_abstraction"
 )
 
 var t uint64
@@ -27,7 +29,7 @@ func Bench_Linear_Builtin_Map_Set(builtin_map map[uint64]uint64, n uint64, do_pr
 	}
 	since := time.Since(start)
 	if do_print {
-		fmt.Println("Built-in Map Microseconds  ::: LINEAR SET :::", since.Microseconds())
+		cpf.Debug_Printf("Built-in Map Microseconds  ::: LINEAR SET ::: %v\n", since.Microseconds())
 	}
 }
 
@@ -40,8 +42,8 @@ func Bench_Linear_Builtin_Map_Get(builtin_map map[uint64]uint64, n uint64, do_pr
 	}
 	since := time.Since(start)
 	if do_print {
-		fmt.Println("Built-in Map Microseconds  ::: LINEAR GET :::", since.Microseconds())
-		fmt.Println("Checksum:", t)
+		cpf.Debug_Printf("Built-in Map Microseconds  ::: LINEAR GET ::: %v\n", since.Microseconds())
+		cpf.Debug_Printf("Checksum: %v\n", t)
 	}
 }
 
@@ -52,7 +54,7 @@ func Bench_Linear_SFDA_Map_Set(sfda *sfda_map.SFDA_Map[uint64, uint64], n uint64
 	}
 	since := time.Since(start)
 	if do_print {
-		fmt.Println("SFDA Map Microseconds      ::: LINEAR SET :::", since.Microseconds())
+		cpf.Debug_Printf("SFDA Map Microseconds      ::: LINEAR SET ::: %v\n", since.Microseconds())
 	}
 }
 
@@ -65,8 +67,8 @@ func Bench_Linear_SFDA_Map_Get(sfda *sfda_map.SFDA_Map[uint64, uint64], n uint64
 	}
 	since := time.Since(start)
 	if do_print {
-		fmt.Println("SFDA Map Microseconds      ::: LINEAR GET :::", since.Microseconds())
-		fmt.Println("Checksum:", t)
+		cpf.Debug_Printf("SFDA Map Microseconds      ::: LINEAR GET ::: %v\n", since.Microseconds())
+		cpf.Debug_Printf("Checksum: %v\n", t)
 	}
 }
 
@@ -94,7 +96,7 @@ func Bench_Random_Builtin_Map_Get(builtin_map map[uint64]uint64, random_keys []u
 	end = time.Now()
 	since := end.Sub(start)
 	if do_print {
-		fmt.Println("Built-in Map Microseconds  ::: RANDOM GET :::", since.Microseconds())
+		cpf.Debug_Printf("Built-in Map Microseconds  ::: RANDOM GET ::: %v\n", since.Microseconds())
 	}
 	return since.Microseconds()
 }
@@ -112,7 +114,7 @@ func Bench_Random_SFDA_Map_Get(sfda *sfda_map.SFDA_Map[uint64, uint64], random_k
 	end = time.Now()
 	since := end.Sub(start)
 	if do_print {
-		fmt.Println("SFDA Map Microseconds  ::: RANDOM GET :::", since.Microseconds())
+		cpf.Debug_Printf("SFDA Map Microseconds  ::: RANDOM GET ::: %v\n", since.Microseconds())
 	}
 	return since.Microseconds()
 }
@@ -122,7 +124,7 @@ func Bench_Deletion_Builtin_Map(builtin_map map[uint64]uint64, keys []uint64) {
 	for _, key := range keys {
 		delete(builtin_map, key)
 	}
-	fmt.Println("Builtin Map Microseconds   ::: DELETE :::", time.Since(start).Microseconds())
+	cpf.Debug_Printf("Builtin Map Microseconds   ::: DELETE ::: %v\n", time.Since(start).Microseconds())
 }
 
 func Bench_Deletion_SFDA_Map(sfda *sfda_map.SFDA_Map[uint64, uint64], keys []uint64) {
@@ -130,7 +132,7 @@ func Bench_Deletion_SFDA_Map(sfda *sfda_map.SFDA_Map[uint64, uint64], keys []uin
 	for _, key := range keys {
 		sfda.Delete(key)
 	}
-	fmt.Println("SFDA Map Microseconds      ::: DELETE :::", time.Since(start).Microseconds())
+	cpf.Debug_Printf("SFDA Map Microseconds      ::: DELETE ::: %v\n", time.Since(start).Microseconds())
 }
 
 func format_Number_With_Commas(n int64) string {
@@ -171,7 +173,7 @@ func Bench_Mem_Usage_Builtin_Map(n uint64) {
 	after := m.Alloc
 
 	formatted := format_Number_With_Commas(int64(after - before))
-	fmt.Printf("Memory Used (Built-in):  %s bytes\n", formatted)
+	cpf.Debug_Printf("Memory Used (Built-in):  %s bytes\n", formatted)
 }
 
 func Bench_Mem_Usage_SFDA_Map(n uint64) {
@@ -191,7 +193,7 @@ func Bench_Mem_Usage_SFDA_Map(n uint64) {
 	after := m.Alloc
 
 	formatted := format_Number_With_Commas(int64(after - before))
-	fmt.Printf("Memory Used (SFDA):      %s bytes\n", formatted)
+	cpf.Debug_Printf("Memory Used (SFDA):      %s bytes\n", formatted)
 }
 
 func Bench_Concurrent_Access_Builtin_Map(builtin_map map[uint64]uint64, n uint64) {
@@ -231,8 +233,8 @@ func Bench_Concurrent_Access_Builtin_Map(builtin_map map[uint64]uint64, n uint64
 	wg.Wait()
 	end_read = time.Now()
 
-	fmt.Println("Built-in map write time:", end_write.Sub(start).Microseconds())
-	fmt.Println("Built-in map read time:", end_read.Sub(start).Microseconds())
+	cpf.Debug_Printf("Built-in map write time: %v\n", end_write.Sub(start).Microseconds())
+	cpf.Debug_Printf("Built-in map read time: %v\n", end_read.Sub(start).Microseconds())
 }
 
 func Bench_Concurrent_Access_SFDA_Map(sfda *sfda_map.SFDA_Map[uint64, uint64], n uint64) {
@@ -272,8 +274,8 @@ func Bench_Concurrent_Access_SFDA_Map(sfda *sfda_map.SFDA_Map[uint64, uint64], n
 	wg.Wait()
 	end_read = time.Now()
 
-	fmt.Println("SFDA map write time:", end_write.Sub(start).Microseconds())
-	fmt.Println("SFDA map read time:", end_read.Sub(start).Microseconds())
+	cpf.Debug_Printf("SFDA map write time: %v\n", end_write.Sub(start).Microseconds())
+	cpf.Debug_Printf("SFDA map read time: %v\n", end_read.Sub(start).Microseconds())
 }
 
 func Bench_Linear_SFDA_Resizable_Map_Set(sfda *sfda_map.SFDA_Resizable_Map[uint64, uint64], n uint64, do_print bool) {
@@ -283,7 +285,7 @@ func Bench_Linear_SFDA_Resizable_Map_Set(sfda *sfda_map.SFDA_Resizable_Map[uint6
 	}
 	since := time.Since(start)
 	if do_print {
-		fmt.Println("SFDA Resizable Map Microseconds      ::: LINEAR SET :::", since.Microseconds())
+		cpf.Debug_Printf("SFDA Resizable Map Microseconds      ::: LINEAR SET ::: %v\n", since.Microseconds())
 	}
 }
 
@@ -296,8 +298,8 @@ func Bench_Linear_SFDA_Resizable_Map_Get(sfda *sfda_map.SFDA_Resizable_Map[uint6
 	}
 	since := time.Since(start)
 	if do_print {
-		fmt.Println("SFDA Resizable Map Microseconds      ::: LINEAR GET :::", since.Microseconds())
-		fmt.Println("Checksum:", t)
+		cpf.Debug_Printf("SFDA Resizable Map Microseconds      ::: LINEAR GET ::: %v\n", since.Microseconds())
+		cpf.Debug_Printf("Checksum: %v\n", t)
 	}
 }
 
@@ -310,7 +312,7 @@ func Bench_Linear_SFDA_Resizable_Map_Get(sfda *sfda_map.SFDA_Resizable_Map[uint6
 // 	for i := uint64(0); i < n; i++ {
 // 		sfda_resizable.Set(i+1, i)
 // 	}
-// 	fmt.Println("SFDA resizable map set time:", time.Since(start))
+// 	cpf.Debug_Printf("SFDA resizable map set time: %v\n", time.Since(start))
 
 // 	t = 0
 // 	start = time.Now()
@@ -320,8 +322,8 @@ func Bench_Linear_SFDA_Resizable_Map_Get(sfda *sfda_map.SFDA_Resizable_Map[uint6
 // 		t += x.(uint64)
 // 	}
 // 	//pprof.StopCPUProfile()
-// 	fmt.Println("SFDA resizable map get time:", time.Since(start))
-// 	fmt.Println("Sum:", t)
+// 	cpf.Debug_Printf("SFDA resizable map get time: %v\n", time.Since(start))
+// 	cpf.Debug_Printf("Sum: %v\n", t)
 // }
 
 func Test_Consistency(n uint64) {

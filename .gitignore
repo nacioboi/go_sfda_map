@@ -1,2 +1,6 @@
 /.vscode
 /*.prof
+
+/*.exe
+/*.o
+/*.out
