@@ -39,11 +39,13 @@ const (
 	PERFORMANCE_PROFILE__16_ENTRIES_PER_BUCKET
 	PERFORMANCE_PROFILE__32_ENTRIES_PER_BUCKET
 	PERFORMANCE_PROFILE__64_ENTRIES_PER_BUCKET
+	PERFORMANCE_PROFILE__128_ENTRIES_PER_BUCKET
 )
 
 func With_Performance_Profile[KT I_Positive_Integer, VT any](p T_Performance_Profile) T_Option[KT, VT] {
 	return T_Option[KT, VT]{
 		t:     OPTION_TYPE__WITH_PERFORMANCE_PROFILE,
+		f:     func(m *SFDA_Map[KT, VT]) { m.performance_profile = p },
 		other: p,
 	}
 }
