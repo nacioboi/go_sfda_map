@@ -175,3 +175,9 @@ At 1 bucket per entry, we are going nearly as fast as we can.
 - [ ] Random read/write with a snapshot.
 - [x] Test Big O Time Complexity for any random key.
   - It is safe to say that the time complexity is O(1) for the `main` branch.
+
+## There is an issue where we can run out of RAM when using `SFDA_Resizable_Map`
+
+If we have a large enough number of buckets, when we go to resize, because it goes to the next power of two, we can easily run out of RAM.
+
+- [ ] Implement a secondary hash function that will work without needing a power of two size of buckets.
