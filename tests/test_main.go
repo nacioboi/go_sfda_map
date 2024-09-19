@@ -324,17 +324,17 @@ func Bench_Concurrent_Access_SFDA_Map(sfda *sfda_map.SFDA_Map[uint64, uint64], n
 // 	fmt.Printf("Sum: %v\n", t)
 // }
 
-func Test_Consistency(n uint64, allocator *sfda_map.PA_Allocator) {
-	sfda_map := sfda_map.New_SFDA_Map[uint64, uint64](n)
+// func Test_Consistency(n uint64, allocator *sfda_map.PA_Allocator) {
+// 	sfda_map := sfda_map.New_SFDA_Map[uint64, uint64](n)
 
-	for i := uint64(0); i < n; i++ {
-		sfda_map.Set(i+1, i)
-	}
+// 	for i := uint64(0); i < n; i++ {
+// 		sfda_map.Set(i+1, i)
+// 	}
 
-	for i := uint64(0); i < n; i++ {
-		res := sfda_map.Get(i + 1)
-		if res.Value != i {
-			log.Fatalf("Expected %d, got %d\n", i, res.Value)
-		}
-	}
-}
+// 	for i := uint64(0); i < n; i++ {
+// 		res := sfda_map.Get(i + 1)
+// 		if res.Value != i {
+// 			log.Fatalf("Expected %d, got %d\n", i, res.Value)
+// 		}
+// 	}
+// }

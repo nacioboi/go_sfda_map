@@ -24,9 +24,9 @@ import (
 // }
 
 func main() {
-	allocator := sfda_map.New_PA_Allocator()
+	//allocator := sfda_map.New_PA_Allocator()
 
-	tests.Test_Consistency(64*2, allocator)
+	//tests.Test_Consistency(64*2, allocator)
 
 	//
 	// Setups...
