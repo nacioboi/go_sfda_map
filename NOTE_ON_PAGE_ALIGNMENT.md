@@ -13,7 +13,7 @@ Trying to page align will also do the following:
 
 ## No.1 take away
 
-Computers are stupid fast, and i mean rediculously fast.
+Computers are stupid fast, and i mean ridiculously fast.
 
 The overhead of dereferencing a pointer (cache miss) is about 1000x slower than a cache hit.
 
