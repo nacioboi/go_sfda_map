@@ -120,3 +120,36 @@ func previous_power_of_two[KT I_Positive_Integer](n KT) KT {
 		panic("Unsupported type.")
 	}
 }
+
+func parse_profile[KT I_Positive_Integer, VT any](
+	expected_num_inputs_raw KT,
+	options []T_Option[KT, VT],
+) (uint64, T_Performance_Profile) {
+	expected_num_inputs_raw = next_power_of_two(expected_num_inputs_raw)
+	expected_num_inputs := uint64(expected_num_inputs_raw)
+
+	profile := PERFORMANCE_PROFILE__NORMAL
+	for _, opt := range options {
+		if opt.t == OPTION_TYPE__WITH_PERFORMANCE_PROFILE {
+			profile = opt.other.(T_Performance_Profile)
+		}
+	}
+
+	var num_buckets uint64
+	switch profile {
+	case PERFORMANCE_PROFILE__FAST:
+		num_buckets = expected_num_inputs / 64
+	case PERFORMANCE_PROFILE__NORMAL:
+		num_buckets = expected_num_inputs / 1
+	case PERFORMANCE_PROFILE__CONSERVE_MEMORY:
+		num_buckets = expected_num_inputs / 256
+	default:
+		panic("Invalid performance profile.")
+	}
+
+	if num_buckets%2 != 0 {
+		panic("numBuckets should be a multiple of 2.")
+	}
+
+	return num_buckets, profile
+}

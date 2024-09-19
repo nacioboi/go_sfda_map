@@ -174,11 +174,13 @@ func Bench_Mem_Usage_Builtin_Map(n uint64) {
 	fmt.Printf("Memory Used (Built-in):  %s bytes\n", formatted)
 }
 
-func Bench_Mem_Usage_SFDA_Map(sfda *sfda_map.SFDA_Map[uint64, uint64], n uint64) {
+func Bench_Mem_Usage_SFDA_Map(f func() *sfda_map.SFDA_Map[uint64, uint64], n uint64) {
 	var m runtime.MemStats
 	runtime.GC()
 	runtime.ReadMemStats(&m)
 	before := m.Alloc
+
+	sfda := f()
 
 	// Perform insertions
 	for i := uint64(0); i < n; i++ {
@@ -322,7 +324,7 @@ func Bench_Concurrent_Access_SFDA_Map(sfda *sfda_map.SFDA_Map[uint64, uint64], n
 // 	fmt.Printf("Sum: %v\n", t)
 // }
 
-func Test_Consistency(n uint64) {
+func Test_Consistency(n uint64, allocator *sfda_map.PA_Allocator) {
 	sfda_map := sfda_map.New_SFDA_Map[uint64, uint64](n)
 
 	for i := uint64(0); i < n; i++ {

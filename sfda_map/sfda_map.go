@@ -136,48 +136,6 @@ type SFDA_Map[KT I_Positive_Integer, VT any] struct {
 	performance_profile T_Performance_Profile
 }
 
-func determine_num_buckets[KT I_Positive_Integer, VT any](
-	expected_num_inputs KT,
-	options []T_Option[KT, VT],
-) uint64 {
-	expected_num_inputs = next_power_of_two(expected_num_inputs)
-
-	profile := PERFORMANCE_PROFILE__8_ENTRIES_PER_BUCKET
-	for _, opt := range options {
-		if opt.t == OPTION_TYPE__WITH_PERFORMANCE_PROFILE {
-			profile = opt.other.(T_Performance_Profile)
-		}
-	}
-
-	var num_buckets KT
-	switch profile {
-	case PERFORMANCE_PROFILE__1_ENTRIES_PER_BUCKET:
-		num_buckets = expected_num_inputs
-	case PERFORMANCE_PROFILE__2_ENTRIES_PER_BUCKET:
-		num_buckets = expected_num_inputs / 2
-	case PERFORMANCE_PROFILE__4_ENTRIES_PER_BUCKET:
-		num_buckets = expected_num_inputs / 4
-	case PERFORMANCE_PROFILE__8_ENTRIES_PER_BUCKET:
-		num_buckets = expected_num_inputs / 8
-	case PERFORMANCE_PROFILE__16_ENTRIES_PER_BUCKET:
-		num_buckets = expected_num_inputs / 16
-	case PERFORMANCE_PROFILE__32_ENTRIES_PER_BUCKET:
-		num_buckets = expected_num_inputs / 32
-	case PERFORMANCE_PROFILE__64_ENTRIES_PER_BUCKET:
-		num_buckets = expected_num_inputs / 64
-	case PERFORMANCE_PROFILE__128_ENTRIES_PER_BUCKET:
-		num_buckets = expected_num_inputs / 128
-	default:
-		panic("Invalid performance profile.")
-	}
-
-	if num_buckets%2 != 0 {
-		panic("numBuckets should be a multiple of 2.")
-	}
-
-	return uint64(num_buckets)
-}
-
 func (m *SFDA_Map[KT, VT]) allocate_linear_buckets(
 	num_buckets_runtime uint64,
 	expected_num_inputs KT,
@@ -218,7 +176,7 @@ func New_SFDA_Map[KT I_Positive_Integer, VT any](
 	expected_num_inputs KT,
 	options ...T_Option[KT, VT],
 ) *SFDA_Map[KT, VT] {
-	num_buckets_runtime := determine_num_buckets(expected_num_inputs, options)
+	num_buckets_runtime, prof := parse_profile(expected_num_inputs, options)
 	num_buckets := KT(num_buckets_runtime)
 
 	// Allocate buckets...
@@ -242,8 +200,8 @@ func New_SFDA_Map[KT I_Positive_Integer, VT any](
 		opt.f(&inst)
 	}
 
-	switch inst.performance_profile {
-	case PERFORMANCE_PROFILE__128_ENTRIES_PER_BUCKET:
+	switch prof {
+	case PERFORMANCE_PROFILE__FAST:
 		//inst.allocate_sorted_buckets(num_buckets_runtime)
 		panic("not implemented")
 	default:
