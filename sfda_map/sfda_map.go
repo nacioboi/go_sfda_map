@@ -22,55 +22,6 @@ type bucket[KT I_Positive_Integer, VT any] struct {
 	inner i_bucket_entries[KT, VT]
 }
 
-// const cluster_size = 4
-// const num_clusters = 128 / cluster_size
-
-// type cluster[KT I_Positive_Integer, VT any] struct {
-// 	entries []t_bucket_entry[KT, VT]
-// }
-// type sorted_bucket[KT I_Positive_Integer, VT any] struct {
-// 	clusters [num_clusters]cluster[KT, VT]
-// }
-
-// func (b *sorted_bucket[KT, VT]) find_idx(cluster_idx int) int {
-// 	cpy := b.clusters[cluster_idx]
-
-// 	// Find first available slot in the cluster...
-// 	for i := 0; i < len(cpy.entries); i++ {
-// 		if cpy.entries[i].key == 0 {
-// 			return i
-// 		}
-// 	}
-// 	// If we reach here, the cluster is full, append to the end...
-// 	b.clusters[cluster_idx].entries = append(b.clusters[cluster_idx].entries, t_bucket_entry[KT, VT]{})
-// 	return len(b.clusters[cluster_idx].entries) - 1
-// }
-
-// func (b *sorted_bucket[KT, VT]) set(key KT, value VT, m *SFDA_Map[KT, VT], b_ptr *bucket[KT, VT]) {
-// 	cluster_idx := int((key - 1) % num_clusters)
-// 	x := (int(key-1) / num_clusters)
-
-// 	if x >= len(b.clusters[cluster_idx].entries) {
-// 		base_add := x - len(b.clusters[cluster_idx].entries) + 1
-// 		more_entries := make([]t_bucket_entry[KT, VT], base_add+256)
-// 		b.clusters[cluster_idx].entries = append(b.clusters[cluster_idx].entries, more_entries...)
-// 	}
-
-// 	b.clusters[cluster_idx].entries[x] = t_bucket_entry[KT, VT]{key: key, value: value}
-// }
-
-// func (b *sorted_bucket[KT, VT]) get(key KT) T_Get_Result[VT] {
-// 	cluster_idx := int((key - 1) % num_clusters)
-// 	x := (int(key-1) / num_clusters)
-
-// 	if b.clusters[cluster_idx].entries[x].key == key {
-// 		return T_Get_Result[VT]{Value: b.clusters[cluster_idx].entries[x].value, Did_Find: true}
-// 	}
-
-// 	var zero VT
-// 	return T_Get_Result[VT]{Value: zero, Did_Find: false}
-// }
-
 type linear_bucket[KT I_Positive_Integer, VT any] struct {
 	entries []t_bucket_entry[KT, VT]
 }
@@ -89,20 +40,46 @@ func (b *linear_bucket[KT, VT]) set(key KT, value VT, m *SFDA_Map[KT, VT], b_ptr
 }
 
 func (b *linear_bucket[KT, VT]) get(key KT) T_Get_Result[VT] {
-	var e t_bucket_entry[KT, VT]
 	for i := 0; i < len(b.entries); i++ {
-		e = b.entries[i]
-		if e.key == key {
+		if b.entries[i].key == key {
 			return T_Get_Result[VT]{
-				Value:    e.value,
-				Did_Find: true,
+				Value:       b.entries[i].value,
+				Did_Succeed: true,
 			}
 		}
 	}
 	var zero VT
 	return T_Get_Result[VT]{
-		Value:    zero,
-		Did_Find: false,
+		Value:       zero,
+		Did_Succeed: false,
+	}
+}
+
+type ll_bucket[KT I_Positive_Integer, VT any] struct {
+	entries []linked_list[t_bucket_entry[KT, VT]]
+}
+
+func (b *ll_bucket[KT, VT]) set(key KT, value VT, m *SFDA_Map[KT, VT], b_ptr *bucket[KT, VT]) {
+	remainder := key & 7
+
+	// We must ensure that we don't already have the same key contained within the same bucket...
+	//m.setter__lazy_safety_check_queue <- t__setter__safety_check_params[KT, VT]{buck: b_ptr, key: key}
+	b.entries[remainder].append(t_bucket_entry[KT, VT]{key: key, value: value})
+}
+
+func (b *ll_bucket[KT, VT]) get(key KT) T_Get_Result[VT] {
+	remainder := key & 7
+
+	val, did_find := b.entries[remainder].iter(func(entry t_bucket_entry[KT, VT]) bool {
+		if entry.key == key {
+			return true
+		}
+		return false
+	})
+
+	return T_Get_Result[VT]{
+		Value:       val.value,
+		Did_Succeed: did_find,
 	}
 }
 
@@ -136,42 +113,6 @@ type SFDA_Map[KT I_Positive_Integer, VT any] struct {
 	performance_profile T_Performance_Profile
 }
 
-func (m *SFDA_Map[KT, VT]) allocate_linear_buckets(
-	num_buckets_runtime uint64,
-	expected_num_inputs KT,
-	num_buckets KT,
-) {
-	estimated_num_entries_per_bucket := expected_num_inputs / num_buckets
-	for i := uint64(0); i < num_buckets_runtime; i++ {
-		b := linear_bucket[KT, VT]{
-			entries: make([]t_bucket_entry[KT, VT], 0, estimated_num_entries_per_bucket),
-		}
-		(*m.buckets)[i] = bucket[KT, VT]{
-			inner: &b,
-		}
-	}
-}
-
-// func (m *SFDA_Map[KT, VT]) allocate_sorted_buckets(
-// 	num_buckets_runtime uint64,
-// ) {
-// 	for i := uint64(0); i < num_buckets_runtime; i++ {
-// 		var clusters [num_clusters]cluster[KT, VT]
-// 		for j := 0; j < num_clusters; j++ {
-// 			entries := make([]t_bucket_entry[KT, VT], cluster_size)
-// 			clusters[j] = cluster[KT, VT]{
-// 				entries: entries,
-// 			}
-// 		}
-// 		b := sorted_bucket[KT, VT]{
-// 			clusters: clusters,
-// 		}
-// 		(*m.buckets)[i] = bucket[KT, VT]{
-// 			inner: &b,
-// 		}
-// 	}
-// }
-
 func New_SFDA_Map[KT I_Positive_Integer, VT any](
 	expected_num_inputs KT,
 	options ...T_Option[KT, VT],
@@ -197,15 +138,34 @@ func New_SFDA_Map[KT I_Positive_Integer, VT any](
 
 	// Apply options...
 	for _, opt := range options {
-		opt.f(&inst)
+		if opt.t != OPTION_TYPE__WITH_PERFORMANCE_PROFILE {
+			opt.f(&inst)
+		}
 	}
 
+	estimated_num_entries_per_bucket := expected_num_inputs / num_buckets
 	switch prof {
-	case PERFORMANCE_PROFILE__FAST:
-		//inst.allocate_sorted_buckets(num_buckets_runtime)
-		panic("not implemented")
+	case PERFORMANCE_PROFILE__NORMAL:
+		if estimated_num_entries_per_bucket > KT(c_NUM_ENTRIES_NORMAL_MODE) {
+			panic("Invalid number of entries per bucket.")
+		}
+		for i := uint64(0); i < num_buckets_runtime; i++ {
+			b := ll_bucket[KT, VT]{
+				entries: make([]linked_list[t_bucket_entry[KT, VT]], 8),
+			}
+			(*inst.buckets)[i] = bucket[KT, VT]{
+				inner: &b,
+			}
+		}
 	default:
-		inst.allocate_linear_buckets(num_buckets_runtime, expected_num_inputs, num_buckets)
+		for i := uint64(0); i < num_buckets_runtime; i++ {
+			b := linear_bucket[KT, VT]{
+				entries: make([]t_bucket_entry[KT, VT], 0, estimated_num_entries_per_bucket),
+			}
+			(*inst.buckets)[i] = bucket[KT, VT]{
+				inner: &b,
+			}
+		}
 	}
 
 	// Start background goroutines...
@@ -253,12 +213,13 @@ func (m *SFDA_Map[KT, VT]) Set(key KT, value VT) {
 
 	idx := m.hash_func(key, m.num_buckets)
 	buck := &(*m.buckets)[idx]
+	// TODO: interface adds some overhead.
 	buck.inner.set(key, value, m, buck)
 }
 
 type T_Get_Result[VT any] struct {
-	Value    VT
-	Did_Find bool
+	Value       VT
+	Did_Succeed bool
 }
 
 // Returns the value and a boolean indicating whether the value was found.

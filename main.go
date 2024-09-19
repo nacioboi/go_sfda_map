@@ -11,6 +11,7 @@ import (
 	"os"
 	"runtime"
 	"runtime/debug"
+	"runtime/pprof"
 
 	"github.com/nacioboi/go_sfda_map/sfda_map"
 	tests "github.com/nacioboi/go_sfda_map/tests"
@@ -41,7 +42,7 @@ func main() {
 	}
 	defer f.Close()
 
-	n1 := uint64(1024 * 1024 * 8)
+	n1 := uint64(1024*1024*2 + 1) // * 1024 * 8)
 	//n2 := n1
 	n3 := uint64(1024)
 	//n4 := n1
@@ -52,10 +53,10 @@ func main() {
 		n1,
 		sfda_map.With_Performance_Profile[uint64, uint64](sfda_map.PERFORMANCE_PROFILE__NORMAL),
 	)
-	// sfda_map_1_b := sfda_map.New_SFDA_Map[uint64, uint64](
-	// 	n1,
-	// 	sfda_map.With_Performance_Profile[uint64, uint64](sfda_map.PERFORMANCE_PROFILE__CONSERVE_MEMORY),
-	// )
+	sfda_map_1_b := sfda_map.New_SFDA_Map[uint64, uint64](
+		n1,
+		sfda_map.With_Performance_Profile[uint64, uint64](sfda_map.PERFORMANCE_PROFILE__FAST),
+	)
 	f1 := func() *sfda_map.SFDA_Map[uint64, uint64] {
 		return sfda_map.New_SFDA_Map[uint64, uint64](
 			n3,
@@ -65,7 +66,7 @@ func main() {
 	f2 := func() *sfda_map.SFDA_Map[uint64, uint64] {
 		return sfda_map.New_SFDA_Map[uint64, uint64](
 			n3,
-			sfda_map.With_Performance_Profile[uint64, uint64](sfda_map.PERFORMANCE_PROFILE__CONSERVE_MEMORY),
+			sfda_map.With_Performance_Profile[uint64, uint64](sfda_map.PERFORMANCE_PROFILE__FAST),
 		)
 	}
 	// b_m_2 := make(map[uint64]uint64)
@@ -89,11 +90,11 @@ func main() {
 
 	// Benchmark SFDA map - linear...
 	tests.Bench_Linear_SFDA_Map_Set(sfda_map_1_a, n1, true)
+	pprof.StartCPUProfile(f)
 	tests.Bench_Linear_SFDA_Map_Get(sfda_map_1_a, n1, true)
-	// tests.Bench_Linear_SFDA_Map_Set(sfda_map_1_b, n1, true)
-	// pprof.StartCPUProfile(f)
-	// tests.Bench_Linear_SFDA_Map_Get(sfda_map_1_b, n1, true)
-	// pprof.StopCPUProfile()
+	pprof.StopCPUProfile()
+	tests.Bench_Linear_SFDA_Map_Set(sfda_map_1_b, n1, true)
+	tests.Bench_Linear_SFDA_Map_Get(sfda_map_1_b, n1, true)
 	sfda_map_1_a = nil
 
 	//

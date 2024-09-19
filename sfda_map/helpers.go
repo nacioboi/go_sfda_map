@@ -137,12 +137,16 @@ func parse_profile[KT I_Positive_Integer, VT any](
 
 	var num_buckets uint64
 	switch profile {
-	case PERFORMANCE_PROFILE__FAST:
-		num_buckets = expected_num_inputs / 64
 	case PERFORMANCE_PROFILE__NORMAL:
-		num_buckets = expected_num_inputs / 1
+		num_buckets = 2
+		for expected_num_inputs/num_buckets > c_NUM_ENTRIES_NORMAL_MODE {
+			num_buckets++
+			num_buckets = _inner__next_power_of_two__uint64(num_buckets)
+		}
+	case PERFORMANCE_PROFILE__FAST:
+		num_buckets = expected_num_inputs
 	case PERFORMANCE_PROFILE__CONSERVE_MEMORY:
-		num_buckets = expected_num_inputs / 256
+		panic("Not implemented.")
 	default:
 		panic("Invalid performance profile.")
 	}

@@ -62,6 +62,9 @@ func Bench_Linear_SFDA_Map_Get(sfda *sfda_map.SFDA_Map[uint64, uint64], n uint64
 	for i := uint64(0); i < n; i++ {
 		res := sfda.Get(i + 1)
 		t += res.Value
+		if res.Did_Succeed == false {
+			log.Fatalf("Key %d not found.\n", i+1)
+		}
 	}
 	since := time.Since(start)
 	if do_print {
@@ -105,7 +108,7 @@ func Bench_Random_SFDA_Map_Get(sfda *sfda_map.SFDA_Map[uint64, uint64], random_k
 	for i := 0; i < len(random_keys); i++ {
 		key := random_keys[i]
 		res := sfda.Get(key)
-		if res.Did_Find == false {
+		if res.Did_Succeed == false {
 			log.Fatalf("Key %d not found.\n", key)
 		}
 	}

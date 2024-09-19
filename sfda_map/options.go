@@ -41,14 +41,16 @@ func With_Hash_Func[KT I_Positive_Integer, VT any](new_hf func(KT) uint64) T_Opt
 
 type T_Performance_Profile uint8
 
+const c_NUM_ENTRIES_NORMAL_MODE uint64 = 64
+
 const (
+	// Fast performance profile sacrifices memory usage for maximum performance.
+	PERFORMANCE_PROFILE__FAST T_Performance_Profile = iota
+
 	// Normal performance profile is the default.
 	//
 	// It attempts to balance performance and memory usage.
-	PERFORMANCE_PROFILE__NORMAL T_Performance_Profile = iota
-
-	// Fast performance profile sacrifices memory usage for maximum performance.
-	PERFORMANCE_PROFILE__FAST
+	PERFORMANCE_PROFILE__NORMAL
 
 	// Conserve memory performance has no special optimizations.
 	//
@@ -58,17 +60,7 @@ const (
 
 func With_Performance_Profile[KT I_Positive_Integer, VT any](p T_Performance_Profile) T_Option[KT, VT] {
 	return T_Option[KT, VT]{
-		t: OPTION_TYPE__WITH_PERFORMANCE_PROFILE,
-		f: func(m I_SFDA_Map[KT, VT]) {
-			switch m.(type) {
-			case *SFDA_Map[KT, VT]:
-				m.(*SFDA_Map[KT, VT]).performance_profile = p
-			// case *SFDA_Aligned_Map[KT, VT]:
-			// 	m.(*SFDA_Aligned_Map[KT, VT]).performance_profile = p
-			default:
-				panic("Invalid map type.")
-			}
-		},
+		t:     OPTION_TYPE__WITH_PERFORMANCE_PROFILE,
 		other: p,
 	}
 }
