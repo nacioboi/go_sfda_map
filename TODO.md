@@ -167,7 +167,7 @@ At 1 bucket per entry, we are going nearly as fast as we can.
 > We are getting ~36x performance gain for get requests compared to the built-in map.
 > This basically cuts in half every time we double the number of entries per bucket.
 
-- [ ] To combat this, we can try loading a slice of the bucket into the cache instead of loading each individual entry.
+- [ ] To combat this, we can try Optimization strategy A.
 
 ## Test other kinds of metrics
 
@@ -181,3 +181,9 @@ At 1 bucket per entry, we are going nearly as fast as we can.
 If we have a large enough number of buckets, when we go to resize, because it goes to the next power of two, we can easily run out of RAM.
 
 - [ ] Implement a secondary hash function that will work without needing a power of two size of buckets.
+
+## Fast profile uses 1 entry per bucket.
+
+Why are we using the interface{} type since it adds overhead?
+
+Search for `TODO` in `sfda_map.go`!
