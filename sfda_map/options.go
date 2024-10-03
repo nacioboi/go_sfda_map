@@ -13,49 +13,32 @@ const (
 	OPTION_TYPE__WITH_EXPERIMENTAL_BATCHED_GETS
 )
 
-type I_SFDA_Map[KT I_Positive_Integer, VT any] interface{}
-
 type T_Option[KT I_Positive_Integer, VT any] struct {
 	t     T_Option_Type
-	f     func(I_SFDA_Map[KT, VT])
+	f     func(*SFDA_Map[KT, VT])
 	other interface{}
 }
 
-func With_Hash_Func[KT I_Positive_Integer, VT any](new_hf func(KT) uint64) T_Option[KT, VT] {
+func With_Hash_Func[KT I_Positive_Integer, VT any](f func(KT) uint64) T_Option[KT, VT] {
 	return T_Option[KT, VT]{
 		t: OPTION_TYPE__WITH_HASH_FUNC,
-		f: func(m I_SFDA_Map[KT, VT]) {
-			switch m.(type) {
-			case *SFDA_Map[KT, VT]:
-				m.(*SFDA_Map[KT, VT]).users_chosen_hash_func = new_hf
-				m.(*SFDA_Map[KT, VT]).using_users_hash_func = true
-			// case *SFDA_Aligned_Map[KT, VT]:
-			// 	m.(*SFDA_Aligned_Map[KT, VT]).users_chosen_hash_func = new_hf
-			// 	m.(*SFDA_Aligned_Map[KT, VT]).using_users_hash_func = true
-			default:
-				panic("Invalid map type.")
-			}
+		f: func(m *SFDA_Map[KT, VT]) {
+			m.users_chosen_hash_func = f
+			m.using_users_hash_func = true
 		},
 	}
 }
 
 type T_Performance_Profile uint8
 
-const c_NUM_ENTRIES_NORMAL_MODE uint64 = 64
-
 const (
-	// Fast performance profile sacrifices memory usage for maximum performance.
-	PERFORMANCE_PROFILE__FAST T_Performance_Profile = iota
-
-	// Normal performance profile is the default.
-	//
-	// It attempts to balance performance and memory usage.
-	PERFORMANCE_PROFILE__NORMAL
-
-	// Conserve memory performance has no special optimizations.
-	//
-	// Meaning, it uses an entire page for the key-value pairs.
-	PERFORMANCE_PROFILE__CONSERVE_MEMORY
+	PERFORMANCE_PROFILE__1_ENTRIES_PER_BUCKET T_Performance_Profile = iota
+	PERFORMANCE_PROFILE__2_ENTRIES_PER_BUCKET
+	PERFORMANCE_PROFILE__4_ENTRIES_PER_BUCKET
+	PERFORMANCE_PROFILE__8_ENTRIES_PER_BUCKET
+	PERFORMANCE_PROFILE__16_ENTRIES_PER_BUCKET
+	PERFORMANCE_PROFILE__32_ENTRIES_PER_BUCKET
+	PERFORMANCE_PROFILE__64_ENTRIES_PER_BUCKET
 )
 
 func With_Performance_Profile[KT I_Positive_Integer, VT any](p T_Performance_Profile) T_Option[KT, VT] {

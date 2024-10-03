@@ -10,19 +10,43 @@ import (
 	"time"
 )
 
+type T_Primitive uint8
+
+const (
+	PRIMITIVE_TYPE_UINT64 T_Primitive = iota
+)
+
+type I_Positive_Integer interface {
+	uint8 | uint16 | uint32 | uint64
+}
+
+type t_bucket_entry[KT I_Positive_Integer, VT any] struct {
+	key   KT
+	value VT
+}
+
+type bucket[KT I_Positive_Integer, VT any] struct {
+	entries []t_bucket_entry[KT, VT]
+}
+
+func (b *bucket[KT, VT]) already_inside(key KT) bool {
+	for i := 0; i < len(b.entries); i++ {
+		if b.entries[i].key == key {
+			return true
+		}
+	}
+	return false
+}
+
 type t__setter__safety_check_params[KT I_Positive_Integer, VT any] struct {
-	key KT
+	buck *bucket[KT, VT]
+	key  KT
 }
 
 // Super-Fast Direct-Access Map.
 type SFDA_Map[KT I_Positive_Integer, VT any] struct {
-	values              [][c_NUM_ENTRIES]VT
-	keys                [][c_NUM_ENTRIES]KT
-	num_buckets         KT
-	num_buckets_runtime uint64
-
-	set_func_ptr func(*[c_NUM_ENTRIES]KT, *[c_NUM_ENTRIES]VT, KT, *VT)
-	get_func_ptr func([c_NUM_ENTRIES]KT, *[c_NUM_ENTRIES]VT, KT) T_Get_Result[VT]
+	buckets     []bucket[KT, VT]
+	num_buckets KT
 
 	users_chosen_hash_func func(KT) uint64
 	using_users_hash_func  bool
@@ -30,23 +54,60 @@ type SFDA_Map[KT I_Positive_Integer, VT any] struct {
 	exit_chan chan struct{}
 
 	setter__lazy_safety_check_queue chan t__setter__safety_check_params[KT, VT]
-
-	performance_profile T_Performance_Profile
 }
 
-func New_SFDA_Map[KT I_Positive_Integer, VT any](
+func New[KT I_Positive_Integer, VT any](
 	expected_num_inputs KT,
 	options ...T_Option[KT, VT],
 ) *SFDA_Map[KT, VT] {
-	num_buckets_runtime, prof := parse_profile(expected_num_inputs, options)
-	num_buckets := KT(num_buckets_runtime)
+	expected_num_inputs = next_power_of_two(expected_num_inputs)
+
+	profile := PERFORMANCE_PROFILE__8_ENTRIES_PER_BUCKET
+	for _, opt := range options {
+		if opt.t == OPTION_TYPE__WITH_PERFORMANCE_PROFILE {
+			profile = opt.other.(T_Performance_Profile)
+		}
+	}
+
+	var num_buckets KT
+	switch profile {
+	case PERFORMANCE_PROFILE__1_ENTRIES_PER_BUCKET:
+		num_buckets = expected_num_inputs
+	case PERFORMANCE_PROFILE__2_ENTRIES_PER_BUCKET:
+		num_buckets = expected_num_inputs / 2
+	case PERFORMANCE_PROFILE__4_ENTRIES_PER_BUCKET:
+		num_buckets = expected_num_inputs / 4
+	case PERFORMANCE_PROFILE__8_ENTRIES_PER_BUCKET:
+		num_buckets = expected_num_inputs / 8
+	case PERFORMANCE_PROFILE__16_ENTRIES_PER_BUCKET:
+		num_buckets = expected_num_inputs / 16
+	case PERFORMANCE_PROFILE__32_ENTRIES_PER_BUCKET:
+		num_buckets = expected_num_inputs / 32
+	case PERFORMANCE_PROFILE__64_ENTRIES_PER_BUCKET:
+		num_buckets = expected_num_inputs / 64
+	default:
+		panic("Invalid performance profile.")
+	}
+
+	if num_buckets%2 != 0 {
+		panic("numBuckets should be a multiple of 2.")
+	}
+
+	// Allocate buckets...
+	num_buckets_runtime := any(num_buckets).(uint64)
+	buckets := make([]bucket[KT, VT], num_buckets_runtime)
+	estimated_num_entries_per_bucket := expected_num_inputs / num_buckets
+	for i := uint64(0); i < num_buckets_runtime; i++ {
+		b := bucket[KT, VT]{
+			entries: make([]t_bucket_entry[KT, VT], 0, estimated_num_entries_per_bucket),
+		}
+		buckets[i] = b
+	}
 
 	// Instantiate...
 	inst := SFDA_Map[KT, VT]{
-		keys:                            make([][1]KT, num_buckets_runtime),
-		values:                          make([][1]VT, num_buckets_runtime),
+		buckets:                         buckets,
 		num_buckets:                     num_buckets,
-		num_buckets_runtime:             num_buckets_runtime,
 		exit_chan:                       make(chan struct{}),
 		setter__lazy_safety_check_queue: make(chan t__setter__safety_check_params[KT, VT], 4096),
 	}
@@ -62,28 +123,8 @@ func New_SFDA_Map[KT I_Positive_Integer, VT any](
 		}
 	}
 
-	//estimated_num_entries_per_bucket := expected_num_inputs / num_buckets
-	switch prof {
-	case PERFORMANCE_PROFILE__NORMAL:
-		panic("Not implemented.")
-		// if estimated_num_entries_per_bucket > KT(c_NUM_ENTRIES_NORMAL_MODE) {
-		// 	panic("Invalid number of entries per bucket.")
-		// }
-		// for i := uint64(0); i < num_buckets_runtime; i++ {
-		// 	b := ll_bucket[KT, VT]{
-		// 		entries: make([]linked_list[t_bucket_entry[KT, VT]], 8),
-		// 	}
-		// 	(*inst.buckets)[i] = bucket[KT, VT]{
-		// 		get_func_ptr: b.get,
-		// 	}
-		// }
-	default:
-		inst.get_func_ptr = linear_bucket__get[KT, VT]
-		inst.set_func_ptr = linear_bucket__set[KT, VT]
-	}
-
 	// Start background goroutines...
-	//go inst.setter__bg__lazy_safety_check_handler()
+	go inst.setter__bg__lazy_safety_check_handler()
 
 	return &inst
 }
@@ -92,14 +133,14 @@ func (m *SFDA_Map[KT, VT]) Enquire_Number_Of_Buckets() KT {
 	return m.num_buckets
 }
 
-func (m *SFDA_Map[KT, VT]) hash_func(key KT, n KT) KT {
-	return key & (n - 1)
+func (m *SFDA_Map[KT, VT]) hash_func(key KT) KT {
+	return key & (m.num_buckets - 1)
 }
 
 func (m *SFDA_Map[KT, VT]) _inner__setter__bg__lazy_safety_check_handler(params t__setter__safety_check_params[KT, VT]) {
-	// if params.buck.already_inside(params.key) {
-	// 	panic("Key already exists in the map.")
-	// }
+	if params.buck.already_inside(params.key) {
+		panic("Key already exists in the map.")
+	}
 }
 
 func (m *SFDA_Map[KT, VT]) setter__bg__lazy_safety_check_handler() {
@@ -125,19 +166,24 @@ func (m *SFDA_Map[KT, VT]) Set(key KT, value VT) {
 		panic("Key cannot be 0.")
 	}
 
-	idx := m.hash_func(key, m.num_buckets)
+	index := m.hash_func(key)
+	buck := &m.buckets[index]
 
-	m.set_func_ptr(
-		&m.keys[idx],
-		&m.values[idx],
-		key,
-		&value,
-	)
+	for i := 0; i < len(buck.entries); i++ {
+		if buck.entries[i].key == key {
+			// We must ensure that we don't already have the same key contained within the same bucket...
+			m.setter__lazy_safety_check_queue <- t__setter__safety_check_params[KT, VT]{buck: buck, key: key}
+			buck.entries[i].value = value
+			return
+		}
+	}
+
+	buck.entries = append(buck.entries, t_bucket_entry[KT, VT]{key: key, value: value})
 }
 
 type T_Get_Result[VT any] struct {
-	Value       VT
-	Did_Succeed bool
+	Value    VT
+	Did_Find bool
 }
 
 // Returns the value and a boolean indicating whether the value was found.
@@ -148,13 +194,25 @@ type T_Get_Result[VT any] struct {
 //
 // - NOTE: This function will not check if the key is 0.
 func (m *SFDA_Map[KT, VT]) Get(key KT) T_Get_Result[VT] {
-	idx := m.hash_func(key, m.num_buckets)
+	index := m.hash_func(key)
+	// NOTE: Keeping value type here improves performance since we do not modify the value.
+	buck := m.buckets[index]
 
-	return m.get_func_ptr(
-		m.keys[idx],
-		&m.values[idx],
-		key,
-	)
+	var e t_bucket_entry[KT, VT]
+	for i := 0; i < len(buck.entries); i++ {
+		e = buck.entries[i]
+		if e.key == key {
+			return T_Get_Result[VT]{
+				Value:    e.value,
+				Did_Find: true,
+			}
+		}
+	}
+	var zero VT
+	return T_Get_Result[VT]{
+		Value:    zero,
+		Did_Find: false,
+	}
 }
 
 // Delete an entry from the map and return a boolean indicating whether the entry was found.
@@ -165,24 +223,23 @@ func (m *SFDA_Map[KT, VT]) Get(key KT) T_Get_Result[VT] {
 //
 // - NOTE: This function will not check if the key is 0.
 func (m *SFDA_Map[KT, VT]) Delete(key KT) bool {
-	// index := m.hash_func(key, m.num_buckets)
-	// buck := &(*m.buckets)[index]
+	index := m.hash_func(key)
+	buck := &m.buckets[index]
 
-	// loc := -1
+	loc := -1
 
-	// for i := 0; i < len(buck.entries); i++ {
-	// 	if buck.entries[i].key == key {
-	// 		loc = i
-	// 		break
-	// 	}
-	// }
+	for i := 0; i < len(buck.entries); i++ {
+		if buck.entries[i].key == key {
+			loc = i
+			break
+		}
+	}
 
-	// // Rearrange the entire slice...
-	// if loc == -1 {
-	// 	return false
-	// }
+	// Rearrange the entire slice...
+	if loc == -1 {
+		return false
+	}
 
-	// buck.entries = append(buck.entries[:loc], buck.entries[loc+1:]...)
-	// return true
-	panic("Not implemented.")
+	buck.entries = append(buck.entries[:loc], buck.entries[loc+1:]...)
+	return true
 }
