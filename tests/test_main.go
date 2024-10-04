@@ -66,11 +66,11 @@ func Bench_Linear_SFDA_Map_Get(sfda *sfda_map.SFDA_Map[uint64, uint64], n uint64
 	t = 0
 	start = time.Now()
 	for i := uint64(0); i < n; i++ {
-		x, ok := sfda.Get(i + 1)
-		if !ok {
+		idx := sfda.Find(i + 1)
+		if idx == -1 {
 			log.Fatalf("Key %d not found.\n", i+1)
 		}
-		t += x
+		t += sfda.Get(i+1, idx)
 	}
 	since := time.Since(start)
 	return Test_Result{
@@ -112,11 +112,11 @@ func Bench_Random_SFDA_Map_Get(sfda *sfda_map.SFDA_Map[uint64, uint64], random_k
 	start = time.Now()
 	for i := 0; i < len(random_keys); i++ {
 		key := random_keys[i]
-		x, ok := sfda.Get(key)
-		if !ok {
+		idx := sfda.Find(key)
+		if idx == -1 {
 			log.Fatalf("Key %d not found.\n", key)
 		}
-		t += x
+		t += sfda.Get(key, idx)
 	}
 	since := time.Since(start)
 	return Test_Result{
@@ -302,12 +302,12 @@ func Test_Consistency(n uint64) {
 	}
 
 	for i := uint64(0); i < n; i++ {
-		x, found := sfda_map.Get(i + 1)
-		if !found {
+		idx := sfda_map.Find(i + 1)
+		if idx == -1 {
 			log.Fatalf("Key %d not found.\n", i+1)
 		}
-		if x != i {
-			log.Fatalf("Expected %d, got %d\n", i, x)
+		if sfda_map.Get(i+1, idx) != i {
+			log.Fatalf("Wrong value for key %d. Got %d\n", i+1, sfda_map.Get(i+1, idx))
 		}
 	}
 }

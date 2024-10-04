@@ -9,19 +9,18 @@ type I_Positive_Integer interface {
 	uint8 | uint16 | uint32 | uint64
 }
 
-type t_bucket_entry[KT I_Positive_Integer, VT any] struct {
-	key   KT
-	value VT
-}
-
-type bucket[KT I_Positive_Integer, VT any] struct {
-	entries []t_bucket_entry[KT, VT]
+type bucket[KT I_Positive_Integer] struct {
+	keys []KT
 }
 
 // Super-Fast Direct-Access Map.
 type SFDA_Map[KT I_Positive_Integer, VT any] struct {
-	buckets        []bucket[KT, VT]
-	num_buckets_m1 KT
+	extras []int
+
+	values                 [][]VT
+	buckets                []bucket[KT]
+	num_buckets_m1         KT
+	num_entries_per_bucket uint64
 
 	users_chosen_hash_func func(KT) uint64
 	using_users_hash_func  bool
@@ -44,8 +43,6 @@ func New[KT I_Positive_Integer, VT any](
 
 	var num_buckets KT
 	switch profile {
-	case PERFORMANCE_PROFILE__1_ENTRIES_PER_BUCKET:
-		num_buckets = expected_num_inputs
 	case PERFORMANCE_PROFILE__2_ENTRIES_PER_BUCKET:
 		num_buckets = expected_num_inputs / 2
 	case PERFORMANCE_PROFILE__4_ENTRIES_PER_BUCKET:
@@ -58,6 +55,8 @@ func New[KT I_Positive_Integer, VT any](
 		num_buckets = expected_num_inputs / 32
 	case PERFORMANCE_PROFILE__64_ENTRIES_PER_BUCKET:
 		num_buckets = expected_num_inputs / 64
+	case PERFORMANCE_PROFILE__128_ENTRIES_PER_BUCKET:
+		num_buckets = expected_num_inputs / 128
 	default:
 		panic("Invalid performance profile.")
 	}
@@ -68,20 +67,24 @@ func New[KT I_Positive_Integer, VT any](
 
 	// Allocate buckets...
 	num_buckets_runtime := any(num_buckets).(uint64)
-	buckets := make([]bucket[KT, VT], num_buckets_runtime)
+	buckets := make([]bucket[KT], num_buckets_runtime)
 	estimated_num_entries_per_bucket := expected_num_inputs / num_buckets
 	for i := uint64(0); i < num_buckets_runtime; i++ {
-		b := bucket[KT, VT]{
-			entries: make([]t_bucket_entry[KT, VT], 0, estimated_num_entries_per_bucket),
+		b := bucket[KT]{
+			keys: make([]KT, 0),
 		}
+
 		buckets[i] = b
 	}
 
 	// Instantiate...
 	inst := SFDA_Map[KT, VT]{
-		buckets:        buckets,
-		num_buckets_m1: num_buckets - 1,
-		profile:        profile,
+		extras:                 make([]int, int(expected_num_inputs+1)),
+		values:                 make([][]VT, num_buckets),
+		buckets:                buckets,
+		num_buckets_m1:         num_buckets - 1,
+		num_entries_per_bucket: uint64(estimated_num_entries_per_bucket),
+		profile:                profile,
 	}
 
 	// Apply options...
@@ -112,18 +115,28 @@ func (m *SFDA_Map[KT, VT]) Set(key KT, value VT) {
 	index := key & m.num_buckets_m1
 	buck := &m.buckets[index]
 
-	for i := 0; i < len(buck.entries); i++ {
-		if buck.entries[i].key == key {
-			buck.entries[i].value = value
-			return
+	i := 0
+	found := false
+	for ; i < len(buck.keys); i++ {
+		if buck.keys[i] == key {
+			panic("not implemented")
 		}
 	}
 
-	buck.entries = append(buck.entries, t_bucket_entry[KT, VT]{key: key, value: value})
+	mod := i % 2
+	if !found {
+		m.values[index] = append(m.values[index], value)
+		buck.keys = append(buck.keys, key)
+		mod = (len(buck.keys) - 1) % 2
+	}
+
+	if mod == 1 {
+		m.extras[key/8] |= 1 << byte(key%8)
+	} else {
+		m.extras[key/8] &= ^(1 << byte(key%8))
+	}
 }
 
-// Returns the value and a boolean indicating whether the value was found.
-//
 // - WARNING: This function is NOT thread-safe.
 //
 // - NOTE: Remember that keys cannot be 0.
@@ -131,18 +144,25 @@ func (m *SFDA_Map[KT, VT]) Set(key KT, value VT) {
 // - NOTE: This function will not check if the key is 0.
 //
 //go:inline
-func (m *SFDA_Map[KT, VT]) Get(key KT) (VT, bool) {
+func (m *SFDA_Map[KT, VT]) Find(key KT) int {
 	// NOTE: Keeping value type here improves performance since we do not modify the value.
 	buck := m.buckets[key&m.num_buckets_m1]
 
-	for i := 0; i < len(buck.entries); i++ {
-		if buck.entries[i].key == key {
-			return buck.entries[i].value, true
+	i := (m.extras[key/8] >> int(key%8)) & 1
+
+	for i < len(buck.keys) {
+		if buck.keys[i] == key {
+			return i
 		}
+		i += 2
 	}
 
-	var zero VT
-	return zero, false
+	return -1
+}
+
+func (m *SFDA_Map[KT, VT]) Get(key KT, id int) VT {
+	index := key & m.num_buckets_m1
+	return m.values[index][id]
 }
 
 // Delete an entry from the map and return a boolean indicating whether the entry was found.
@@ -155,23 +175,24 @@ func (m *SFDA_Map[KT, VT]) Get(key KT) (VT, bool) {
 //
 //go:inline
 func (m *SFDA_Map[KT, VT]) Delete(key KT) bool {
-	index := key & m.num_buckets_m1
-	buck := &m.buckets[index]
+	// index := key & m.num_buckets_m1
+	// buck := &m.buckets[index]
 
-	loc := -1
+	// loc := -1
 
-	for i := 0; i < len(buck.entries); i++ {
-		if buck.entries[i].key == key {
-			loc = i
-			break
-		}
-	}
+	// for i := 0; i < len(buck.entries); i++ {
+	// 	if buck.entries[i].key == uint64(key) {
+	// 		loc = i
+	// 		break
+	// 	}
+	// }
 
-	// Rearrange the entire slice...
-	if loc == -1 {
-		return false
-	}
+	// // Rearrange the entire slice...
+	// if loc == -1 {
+	// 	return false
+	// }
 
-	buck.entries = append(buck.entries[:loc], buck.entries[loc+1:]...)
-	return true
+	// buck.entries = append(buck.entries[:loc], buck.entries[loc+1:]...)
+	// return true
+	panic("Not implemented.")
 }

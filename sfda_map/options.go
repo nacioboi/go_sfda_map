@@ -32,15 +32,22 @@ func With_Hash_Func[KT I_Positive_Integer, VT any](f func(KT) uint64) T_Option[K
 type T_Performance_Profile uint8
 
 const (
-	PERFORMANCE_PROFILE__1_ENTRIES_PER_BUCKET T_Performance_Profile = iota
-	PERFORMANCE_PROFILE__2_ENTRIES_PER_BUCKET
+	PERFORMANCE_PROFILE__2_ENTRIES_PER_BUCKET T_Performance_Profile = iota
 	PERFORMANCE_PROFILE__4_ENTRIES_PER_BUCKET
 	PERFORMANCE_PROFILE__8_ENTRIES_PER_BUCKET
 	PERFORMANCE_PROFILE__16_ENTRIES_PER_BUCKET
 	PERFORMANCE_PROFILE__32_ENTRIES_PER_BUCKET
 	PERFORMANCE_PROFILE__64_ENTRIES_PER_BUCKET
+	PERFORMANCE_PROFILE__128_ENTRIES_PER_BUCKET
 )
 
+//
+// The default performance profile is `PERFORMANCE_PROFILE__8_ENTRIES_PER_BUCKET`.
+//
+// This provides a good balance between memory usage and performance.
+//
+// ONLY USE ANYTHING ABOVE 8 ENTRIES PER BUCKET IF YOU DO NOT CARE ABOUT PERFORMANCE, but would like to save memory.
+//
 func With_Performance_Profile[KT I_Positive_Integer, VT any](p T_Performance_Profile) T_Option[KT, VT] {
 	return T_Option[KT, VT]{
 		t:     OPTION_TYPE__WITH_PERFORMANCE_PROFILE,
