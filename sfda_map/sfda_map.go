@@ -5,17 +5,6 @@
 
 package sfda_map
 
-import (
-	"runtime"
-	"time"
-)
-
-type T_Primitive uint8
-
-const (
-	PRIMITIVE_TYPE_UINT64 T_Primitive = iota
-)
-
 type I_Positive_Integer interface {
 	uint8 | uint16 | uint32 | uint64
 }
@@ -29,31 +18,15 @@ type bucket[KT I_Positive_Integer, VT any] struct {
 	entries []t_bucket_entry[KT, VT]
 }
 
-func (b *bucket[KT, VT]) already_inside(key KT) bool {
-	for i := 0; i < len(b.entries); i++ {
-		if b.entries[i].key == key {
-			return true
-		}
-	}
-	return false
-}
-
-type t__setter__safety_check_params[KT I_Positive_Integer, VT any] struct {
-	buck *bucket[KT, VT]
-	key  KT
-}
-
 // Super-Fast Direct-Access Map.
 type SFDA_Map[KT I_Positive_Integer, VT any] struct {
-	buckets     []bucket[KT, VT]
-	num_buckets KT
+	buckets        []bucket[KT, VT]
+	num_buckets_m1 KT
 
 	users_chosen_hash_func func(KT) uint64
 	using_users_hash_func  bool
 
-	exit_chan chan struct{}
-
-	setter__lazy_safety_check_queue chan t__setter__safety_check_params[KT, VT]
+	profile T_Performance_Profile
 }
 
 func New[KT I_Positive_Integer, VT any](
@@ -106,15 +79,10 @@ func New[KT I_Positive_Integer, VT any](
 
 	// Instantiate...
 	inst := SFDA_Map[KT, VT]{
-		buckets:                         buckets,
-		num_buckets:                     num_buckets,
-		exit_chan:                       make(chan struct{}),
-		setter__lazy_safety_check_queue: make(chan t__setter__safety_check_params[KT, VT], 4096),
+		buckets:        buckets,
+		num_buckets_m1: num_buckets - 1,
+		profile:        profile,
 	}
-
-	runtime.SetFinalizer(&inst, func(m *SFDA_Map[KT, VT]) {
-		close(m.exit_chan)
-	})
 
 	// Apply options...
 	for _, opt := range options {
@@ -123,67 +91,35 @@ func New[KT I_Positive_Integer, VT any](
 		}
 	}
 
-	// Start background goroutines...
-	go inst.setter__bg__lazy_safety_check_handler()
-
 	return &inst
 }
 
 func (m *SFDA_Map[KT, VT]) Enquire_Number_Of_Buckets() KT {
-	return m.num_buckets
-}
-
-func (m *SFDA_Map[KT, VT]) hash_func(key KT) KT {
-	return key & (m.num_buckets - 1)
-}
-
-func (m *SFDA_Map[KT, VT]) _inner__setter__bg__lazy_safety_check_handler(params t__setter__safety_check_params[KT, VT]) {
-	if params.buck.already_inside(params.key) {
-		panic("Key already exists in the map.")
-	}
-}
-
-func (m *SFDA_Map[KT, VT]) setter__bg__lazy_safety_check_handler() {
-	for {
-		select {
-		case params := <-m.setter__lazy_safety_check_queue:
-			m._inner__setter__bg__lazy_safety_check_handler(params)
-		case <-m.exit_chan:
-			return
-		default:
-			time.Sleep(250 * time.Millisecond)
-			continue
-		}
-	}
+	return m.num_buckets_m1 + 1
 }
 
 // Set a key-value pair in the map.
 // Will panic if something goes wrong.
 //
 // - WARNING: This function is NOT thread-safe.
+//
+//go:inline
 func (m *SFDA_Map[KT, VT]) Set(key KT, value VT) {
 	if key == 0 {
 		panic("Key cannot be 0.")
 	}
 
-	index := m.hash_func(key)
+	index := key & m.num_buckets_m1
 	buck := &m.buckets[index]
 
 	for i := 0; i < len(buck.entries); i++ {
 		if buck.entries[i].key == key {
-			// We must ensure that we don't already have the same key contained within the same bucket...
-			m.setter__lazy_safety_check_queue <- t__setter__safety_check_params[KT, VT]{buck: buck, key: key}
 			buck.entries[i].value = value
 			return
 		}
 	}
 
 	buck.entries = append(buck.entries, t_bucket_entry[KT, VT]{key: key, value: value})
-}
-
-type T_Get_Result[VT any] struct {
-	Value    VT
-	Did_Find bool
 }
 
 // Returns the value and a boolean indicating whether the value was found.
@@ -193,26 +129,20 @@ type T_Get_Result[VT any] struct {
 // - NOTE: Remember that keys cannot be 0.
 //
 // - NOTE: This function will not check if the key is 0.
-func (m *SFDA_Map[KT, VT]) Get(key KT) T_Get_Result[VT] {
-	index := m.hash_func(key)
+//
+//go:inline
+func (m *SFDA_Map[KT, VT]) Get(key KT) (VT, bool) {
 	// NOTE: Keeping value type here improves performance since we do not modify the value.
-	buck := m.buckets[index]
+	buck := m.buckets[key&m.num_buckets_m1]
 
-	var e t_bucket_entry[KT, VT]
 	for i := 0; i < len(buck.entries); i++ {
-		e = buck.entries[i]
-		if e.key == key {
-			return T_Get_Result[VT]{
-				Value:    e.value,
-				Did_Find: true,
-			}
+		if buck.entries[i].key == key {
+			return buck.entries[i].value, true
 		}
 	}
+
 	var zero VT
-	return T_Get_Result[VT]{
-		Value:    zero,
-		Did_Find: false,
-	}
+	return zero, false
 }
 
 // Delete an entry from the map and return a boolean indicating whether the entry was found.
@@ -222,8 +152,10 @@ func (m *SFDA_Map[KT, VT]) Get(key KT) T_Get_Result[VT] {
 // - NOTE: Remember that keys cannot be 0.
 //
 // - NOTE: This function will not check if the key is 0.
+//
+//go:inline
 func (m *SFDA_Map[KT, VT]) Delete(key KT) bool {
-	index := m.hash_func(key)
+	index := key & m.num_buckets_m1
 	buck := &m.buckets[index]
 
 	loc := -1

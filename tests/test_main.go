@@ -38,7 +38,10 @@ func Bench_Linear_Builtin_Map_Get(builtin_map map[uint64]uint64, n uint64) Test_
 	t = 0
 	start = time.Now()
 	for i := uint64(0); i < n; i++ {
-		x := builtin_map[i+1]
+		x, ok := builtin_map[i+1]
+		if !ok {
+			log.Fatalf("Key %d not found.\n", i+1)
+		}
 		t += x
 	}
 	since := time.Since(start)
@@ -63,8 +66,11 @@ func Bench_Linear_SFDA_Map_Get(sfda *sfda_map.SFDA_Map[uint64, uint64], n uint64
 	t = 0
 	start = time.Now()
 	for i := uint64(0); i < n; i++ {
-		res := sfda.Get(i + 1)
-		t += res.Value
+		x, ok := sfda.Get(i + 1)
+		if !ok {
+			log.Fatalf("Key %d not found.\n", i+1)
+		}
+		t += x
 	}
 	since := time.Since(start)
 	return Test_Result{
@@ -85,36 +91,37 @@ func Generate_Random_Keys(n uint64) []uint64 {
 }
 
 func Bench_Random_Builtin_Map_Get(builtin_map map[uint64]uint64, random_keys []uint64) Test_Result {
+	t = 0
 	start = time.Now()
-	var end time.Time
 	for i := 0; i < len(random_keys); i++ {
 		key := random_keys[i]
-		_, ok := builtin_map[key]
+		x, ok := builtin_map[key]
 		if !ok {
 			log.Fatalf("Key %d not found.\n", key)
 		}
+		t += x
 	}
-	end = time.Now()
-	since := end.Sub(start)
+	since := time.Since(start)
 	return Test_Result{
 		Elapsed_Time: since.Microseconds(),
 	}
 }
 
 func Bench_Random_SFDA_Map_Get(sfda *sfda_map.SFDA_Map[uint64, uint64], random_keys []uint64) Test_Result {
+	t = 0
 	start = time.Now()
-	var end time.Time
 	for i := 0; i < len(random_keys); i++ {
 		key := random_keys[i]
-		res := sfda.Get(key)
-		if res.Did_Find == false {
+		x, ok := sfda.Get(key)
+		if !ok {
 			log.Fatalf("Key %d not found.\n", key)
 		}
+		t += x
 	}
-	end = time.Now()
-	since := end.Sub(start)
+	since := time.Since(start)
 	return Test_Result{
 		Elapsed_Time: since.Microseconds(),
+		Checksum:     t,
 	}
 }
 
@@ -295,9 +302,12 @@ func Test_Consistency(n uint64) {
 	}
 
 	for i := uint64(0); i < n; i++ {
-		res := sfda_map.Get(i + 1)
-		if res.Value != i {
-			log.Fatalf("Expected %d, got %d\n", i, res.Value)
+		x, found := sfda_map.Get(i + 1)
+		if !found {
+			log.Fatalf("Key %d not found.\n", i+1)
+		}
+		if x != i {
+			log.Fatalf("Expected %d, got %d\n", i, x)
 		}
 	}
 }

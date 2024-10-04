@@ -11,6 +11,7 @@ import (
 	"os"
 	"runtime"
 	"runtime/debug"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/nacioboi/go_sfda_map/sfda_map"
@@ -51,7 +52,7 @@ func main() {
 	}
 	defer f.Close()
 
-	n_normal := uint64(1024 * 1024 * 8)
+	n_normal := uint64(1024 * 1024 * 32)
 	n_memory := uint64(1024)
 
 	// Create maps...
@@ -124,7 +125,9 @@ func main() {
 	res = tests.Bench_Random_Builtin_Map_Get(bm, data)
 	fmt.Printf("\nBM       :: RANDOM GET            :: %d\n", res.Elapsed_Time)
 	fmt.Printf("BM       :: MICROSECONDS PER OP   :: %f\n", float64(res.Elapsed_Time)/float64(n_normal))
+	pprof.StartCPUProfile(f)
 	res = tests.Bench_Random_SFDA_Map_Get(sfda_64, data)
+	pprof.StopCPUProfile()
 	fmt.Printf("SFDA 64  :: RANDOM GET            :: %d\n", res.Elapsed_Time)
 	fmt.Printf("SFDA 64  :: MICROSECONDS PER OP   :: %f\n", float64(res.Elapsed_Time)/float64(n_normal))
 	res = tests.Bench_Random_SFDA_Map_Get(sfda_32, data)
